@@ -8,6 +8,7 @@ import java.nio.file.Paths;
 import java.util.UUID;
 
 import javax.servlet.MultipartConfigElement;
+import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.Part;
 
 import org.apache.commons.io.FilenameUtils;
@@ -20,7 +21,6 @@ public class ImageRoute {
 
     public ImageRoute() {
         this.storageDir = new File("storage");
-        System.out.println("Path: " + this.storageDir.getAbsolutePath());
         if (!this.storageDir.isDirectory()) {
             this.storageDir.mkdir();
         }
@@ -30,21 +30,59 @@ public class ImageRoute {
         Spark.port(4200);
 
         Spark.get("/api/image", "multipart/form-data", (request, response) -> {
-            return "Return from GET";
+            String id = request.queryParams("id");
+            if (id == null) {
+                response.status(400);
+                return "Parameter ID is required";
+            }
+            Path path = Paths.get(this.storageDir + "/" + id + ".jpg");
+            File file = path.toFile();
+            if (!file.exists())  {
+                response.status(400);
+                return "Image does not exist";
+            }
+            byte[] data;
+            try {
+                data = Files.readAllBytes(path);
+            } catch (Exception e) {
+                response.status(500);
+                return "Unable to fetch image: " + e.getMessage();
+            }
+            HttpServletResponse raw = response.raw();
+            response.header("Content-Disposition", "attachment; filename=image.jpg");
+            response.type("application/force-download");
+            try {
+                raw.getOutputStream().write(data);
+                raw.getOutputStream().flush();
+                raw.getOutputStream().close();
+            } catch (Exception e) {
+                response.status(500);
+                return e.getMessage();
+            }
+            return raw;
         });
 
         long limits = 100000000;
         Spark.post("/api/upload", (request, response) -> {
             String base = "localhost:4200/api/image";
+
             UUID uuid = UUID.randomUUID();
             String id = uuid.toString();
 
-            MultipartConfigElement multipartConfigElement = new MultipartConfigElement(storageDir.getName(), limits, limits, 1024);
+            Part fileUpload;
+            try {
+                fileUpload = request.raw().getPart("file");
+            } catch (Exception e) {
+                response.status(400);
+                return "Key `file` is required in body form-data";
+            }
+
+            MultipartConfigElement multipartConfigElement = new MultipartConfigElement(storageDir.getName(), limits,
+                    limits, 1024);
             request.raw().setAttribute("org.eclipse.jetty.multipartConfig", multipartConfigElement);
 
-            Part fileUpload = request.raw().getPart("file");
             String fileName = fileUpload.getSubmittedFileName();
-            String extension =  FilenameUtils.getExtension(fileName);
+            String extension = FilenameUtils.getExtension(fileName);
             Path target = Paths.get(this.storageDir + "/" + id + "." + extension);
             try (final InputStream streamIn = fileUpload.getInputStream()) {
                 Files.copy(streamIn, target);
