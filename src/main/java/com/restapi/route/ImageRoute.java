@@ -16,7 +16,6 @@ import org.apache.commons.io.FilenameUtils;
 import spark.Spark;
 
 public class ImageRoute {
-
     private File storageDir;
 
     public ImageRoute() {
@@ -29,6 +28,7 @@ public class ImageRoute {
     public void route() {
         Spark.port(4200);
 
+        // parameter: id
         Spark.get("/api/image", "multipart/form-data", (request, response) -> {
             String id = request.queryParams("id");
             if (id == null) {
@@ -62,8 +62,9 @@ public class ImageRoute {
             return raw;
         });
 
-        long limits = 100000000;
+        // parameter: file
         Spark.post("/api/upload", (request, response) -> {
+            long limits = 100000000;
             String base = "localhost:4200/api/image";
 
             UUID uuid = UUID.randomUUID();
