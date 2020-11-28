@@ -47,6 +47,10 @@ public class Unzip {
             entry = zipIn.getNextEntry();
         }
         zipIn.close();
+        File zipFile = new File(zipFilePath);
+        if (!zipFile.delete()) {
+            System.err.println("Unable to delete " + zipFilePath);
+        }
         return ids;
     }
 

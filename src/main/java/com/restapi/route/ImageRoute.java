@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -106,7 +107,7 @@ public class ImageRoute {
             }
 
             try (final InputStream streamIn = fileUpload.getInputStream()) {
-                Files.copy(streamIn, target);
+                Files.copy(streamIn, target, StandardCopyOption.REPLACE_EXISTING);
                 fileUpload.delete();
             }
 
