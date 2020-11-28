@@ -5,11 +5,16 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 import javax.servlet.MultipartConfigElement;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.Part;
+
+import com.restapi.util.Unzip;
 
 import org.apache.commons.io.FilenameUtils;
 
@@ -35,9 +40,9 @@ public class ImageRoute {
                 response.status(400);
                 return "Parameter ID is required";
             }
-            Path path = Paths.get(this.storageDir + "/" + id + ".jpg");
+            Path path = Paths.get(this.storageDir + "/" + id);
             File file = path.toFile();
-            if (!file.exists())  {
+            if (!file.exists()) {
                 response.status(400);
                 return "Image does not exist";
             }
@@ -67,8 +72,9 @@ public class ImageRoute {
             long limits = 100000000;
             String base = "localhost:4200/api/image";
 
-            UUID uuid = UUID.randomUUID();
-            String id = uuid.toString();
+            MultipartConfigElement multipartConfigElement = new MultipartConfigElement(storageDir.getName(), limits,
+                    limits, 1024);
+            request.raw().setAttribute("org.eclipse.jetty.multipartConfig", multipartConfigElement);
 
             Part fileUpload;
             try {
@@ -78,21 +84,47 @@ public class ImageRoute {
                 return "Key `file` is required in body form-data";
             }
 
-            MultipartConfigElement multipartConfigElement = new MultipartConfigElement(storageDir.getName(), limits,
-                    limits, 1024);
-            request.raw().setAttribute("org.eclipse.jetty.multipartConfig", multipartConfigElement);
-
             String fileName = fileUpload.getSubmittedFileName();
             String extension = FilenameUtils.getExtension(fileName);
-            Path target = Paths.get(this.storageDir + "/" + id + "." + extension);
+
+            String[] extensions = {"jpg", "zip", "png"};
+            List<String> whitelist = Arrays.asList(extensions);
+            if (!whitelist.contains(extension)) {
+                response.status(400);
+                return "File type not supported";
+            }
+
+            List<String> urlList = new ArrayList<>();
+            Path target = null;
+            if (extension.equals("zip")) {
+                target = Paths.get(this.storageDir + "/" + fileName);
+            } else {
+                UUID uuid = UUID.randomUUID();
+                String id = uuid.toString();
+                urlList.add(base + "?id=" + id + "." + extension);
+                target = Paths.get(this.storageDir + "/" + id + "." + extension);
+            }
+
             try (final InputStream streamIn = fileUpload.getInputStream()) {
                 Files.copy(streamIn, target);
                 fileUpload.delete();
             }
+
             multipartConfigElement = null;
             fileUpload = null;
 
-            return base + "?id=" + id;
+            if (extension.equals("zip")) {
+                Unzip tool = new Unzip();
+                try {
+                    tool.unzip(target.toString(), this.storageDir.toString()).forEach(element -> {
+                        urlList.add(base + "?id=" + element);
+                    });
+                } catch (Exception e) {
+                    response.status(500);
+                    return e.getMessage();
+                }
+            }
+            return urlList.toString();
         });
     }
 }
