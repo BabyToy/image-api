@@ -41,12 +41,16 @@ public class Unzip {
             if (!entry.isDirectory()) {
                 // if the entry is a file, extracts it
                 extractFile(zipIn, filePath);
+
+                // save the ID for later
                 ids.add(id + "." + extension);
             }
             zipIn.closeEntry();
             entry = zipIn.getNextEntry();
         }
         zipIn.close();
+
+        // cleanup
         File zipFile = new File(zipFilePath);
         if (!zipFile.delete()) {
             System.err.println("Unable to delete " + zipFilePath);

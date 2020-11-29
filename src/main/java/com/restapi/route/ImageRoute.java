@@ -69,6 +69,7 @@ public class ImageRoute {
         });
 
         // parameter: file
+        // returns a list of URLs for each image
         Spark.post("/api/upload", (request, response) -> {
             long limits = 100000000;
             String base = "localhost:4200/api/image";
@@ -88,6 +89,7 @@ public class ImageRoute {
             String fileName = fileUpload.getSubmittedFileName();
             String extension = FilenameUtils.getExtension(fileName);
 
+            // check if the attachment is supported
             String[] extensions = {"jpg", "zip", "png"};
             List<String> whitelist = Arrays.asList(extensions);
             if (!whitelist.contains(extension)) {
@@ -97,6 +99,8 @@ public class ImageRoute {
 
             List<String> urlList = new ArrayList<>();
             Path target = null;
+
+            // save the attachment
             if (extension.equals("zip")) {
                 target = Paths.get(this.storageDir + "/" + fileName);
             } else {
@@ -114,6 +118,7 @@ public class ImageRoute {
             multipartConfigElement = null;
             fileUpload = null;
 
+            // process each image in the packed file
             if (extension.equals("zip")) {
                 Unzip tool = new Unzip();
                 try {
